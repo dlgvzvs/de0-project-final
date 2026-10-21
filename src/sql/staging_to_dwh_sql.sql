@@ -1,12 +1,12 @@
-DROP SCHEMA IF EXISTS temp_name_DWH;
+DROP SCHEMA IF EXISTS VT260701BC766E_DWh; -- в качестве временной меры указал БД из проекта спринта "Аналитические базы данных"
 
-CREATE SCHEMA temp_name_DWH;
+CREATE SCHEMA VT260701BC766E_DWh;
 
-DROP TABLE IF EXISTS temp_name_DWH.global_metrics;
+DROP TABLE IF EXISTS VT260701BC766E_DWh.global_metrics;
 
-CREATE TABLE temp_name_DWH.global_metrics (
+CREATE TABLE VT260701BC766E_DWh.global_metrics (
 	date_update TIMESTAMP NOT NULL,
-	currency_from SMALLINT NOT NULL, -- тут пока не опредеделился - либо temp_name_STAGING.currencies(currency_code), либо temp_name_STAGING.transactions(account_number_from)
+	currency_from SMALLINT NOT NULL, -- тут пока не опредеделился - либо VT260701BC766E_STAGING.currencies(currency_code), либо VT260701BC766E_STAGING.transactions(account_number_from)
 	amount_total NUMERIC (18,2) NOT NULL CHECK (amount_total <> 0),
 	cnt_transactions BIGINT NOT NULL CHECK (cnt_transactions >= 0),
 	avg_transactions_per_account NUMERIC (10,2) CHECK (avg_transactions_per_account >= 0),
@@ -22,7 +22,7 @@ WITH aggregations_per_date_and_currency AS (
 		COUNT(operation_id) AS cnt_transactions,
 		(COUNT(operation_id) / NULLIF(COUNT(DISTINCT account_number_from), 0))::NUMERIC (10,2) AS avg_transactions_per_account,
 		COUNT(DISTINCT account_number_from) AS cnt_accounts_make_transactions
-	FROM temp_name_STAGING.transactions
+	FROM VT260701BC766E_STAGING.transactions
 	WHERE account_number_from > 0 
 	AND account_number_to > 0
 	AND transaction_dt >= '{{ ds }}'::TIMESTAMP
@@ -30,7 +30,7 @@ WITH aggregations_per_date_and_currency AS (
 	GROUP BY DATE_TRUNC(transaction_dt, day), currency_code
 )
 
-MERGE INTO temp_name_DWH.global_metrics AS target
+MERGE INTO VT260701BC766E_DWh.global_metrics AS target
 USING (
     SELECT
         apdac.date_update,
@@ -40,7 +40,7 @@ USING (
         apdac.avg_transactions_per_account,
         apdac.cnt_accounts_make_transactions
     FROM aggregations_per_date_and_currency apdac
-    JOIN temp_name_STAGING.currencies c 
+    JOIN VT260701BC766E_STAGING.currencies c 
       ON apdac.currency_from = c.currency_code 
      AND apdac.date_update::DATE = c.date_update::DATE 
      AND c.currency_code_with = 410

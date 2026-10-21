@@ -1,19 +1,19 @@
-DROP SCHEMA IF EXISTS temp_name_STAGING;
+DROP SCHEMA IF EXISTS VT260701BC766E_STAGING; -- в качестве временной меры указал БД из проекта спринта "Аналитические базы данных"
 
-CREATE SCHEMA temp_name_STAGING;
+CREATE SCHEMA VT260701BC766E_STAGING;
 
-DROP TABLE IF EXISTS temp_name_STAGING.currencies;
+DROP TABLE IF EXISTS VT260701BC766E_STAGING.currencies;
 
-CREATE TABLE temp_name_STAGING.currencies(
+CREATE TABLE VT260701BC766E_STAGING.currencies(
 	currency_code SMALLINT,
 	currency_code_with SMALLINT,
 	date_update DATE,
 	currency_with_div NUMERIC(3,2)
 );
 
-DROP PROJECTION IF EXISTS temp_name_STAGING.currencies;
+DROP PROJECTION IF EXISTS VT260701BC766E_STAGING.currencies;
 
-CREATE PROJECTION temp_name_STAGING.currencies 
+CREATE PROJECTION VT260701BC766E_STAGING.currencies 
 (currency_code,
  currency_code_with,
  date_update,
@@ -22,15 +22,15 @@ SELECT currencies.currency_code,
 	   currencies.currency_code_with,
 	   currencies.date_update,
 	   currencies.currency_with_div
-FROM temp_name_STAGING.currencies
+FROM VT260701BC766E_STAGING.currencies
 PARTITION BY currencies.date_update
 ORDER BY currencies.date_update ASC
 SEGMENTED BY HASH (currencies.date_update) ALL NODES KSAFE 1;
 
 
-DROP TABLE IF EXISTS temp_name_STAGING.transactions;
+DROP TABLE IF EXISTS VT260701BC766E_STAGING.transactions;
 
-CREATE TABLE temp_name_STAGING.transactions(
+CREATE TABLE VT260701BC766E_STAGING.transactions(
 	operation_id UUID NOT NULL PRIMARY KEY,
 	account_number_from BIGINT NOT NULL,
 	account_number_to BIGINT NOT NULL,
@@ -42,9 +42,9 @@ CREATE TABLE temp_name_STAGING.transactions(
 	transaction_dt TIMESTAMP NOT NULL
 );
 
-DROP PROJECTION IF EXISTS temp_name_STAGING.transactions;
+DROP PROJECTION IF EXISTS VT260701BC766E_STAGING.transactions;
 
-CREATE PROJECTION temp_name_STAGING.transactions
+CREATE PROJECTION VT260701BC766E_STAGING.transactions
 (operation_id,
  account_number_from,
  account_number_to,
@@ -63,7 +63,7 @@ CREATE PROJECTION temp_name_STAGING.transactions
         transactions.transaction_type,
         transactions.amount,
         transactions.transaction_dt
-FROM temp_name_STAGING.transactions
+FROM VT260701BC766E_STAGING.transactions
 PARTITION BY transactions.transaction_dt
 ORDER BY transactions.transaction_dt ASC
 SEGMENTED BY HASH(transactions.operation_id) ALL NODES KSAFE 1;
