@@ -2,6 +2,7 @@ from airflow import DAG
 import datetime
 from airflow.operators.python import PythonOperator
 import vertica_python
+from airflow.hooks.base import BaseHook
 
 default_args = {
     'owner': 'dlgvzvs',
@@ -18,31 +19,38 @@ dag = DAG(
 )
 
 def s3_to_staging_task(**context):
-    interested_datetime = context['ds']
-    interested_batch_number = int(interested_datetime.split('-')[-1])
-    sql_text = f"COPY temp_name_STAGING.transactions FROM 's3://final-project/transactions_batch_{interested_batch_number}.csv';"
-    conn_info = { # потом подставлю значения
-        'host': 'host_name', 
-        'port': 'port_number', 
-        'user': 'user_name', 
-        'password': 'user_password', 
-        'database': 'db_name'
+    ## Версия 2
+    bucket_name = 'final-project'
+    source_path = f's3://{bucket_name}/'
+    airflow_conn = BaseHook.get_connection('vertica_conn')
+    ## По-прежнему не удаётся получить данные для соединения с Vertica из-за ошибки 503
+    conn_info = {
+        'host': airflow_conn.host,
+        'port': airflow_conn.port,
+        'user': airflow_conn.login,
+        'password': airflow_conn.password,
+        'database': airflow_conn.schema,
     }
     conn = vertica_python.connect(**conn_info)
+    ## Конец нового блока (версия 2)
+    interested_datetime = context['ds']
     cur = conn.cursor()
     
-    if interested_batch_number == 1:
-        cur.execute("""
-            COPY temp_name_STAGING.currencies
-            FROM 's3://final-project/currencies_history.csv';
+    if interested_datetime == '2022-10-01':
+        cur.execute(f""" 
+            COPY temp_name_STAGING.currencies 
+            FROM '{source_path}currencies_history.csv'; 
+            """)
+    ## Версия 2 - блок 2
+    for i in range(1, 11):
+        cur.execute(f"""
+        COPY temp_name_STAGING.transactions
+        FROM '{source_path}transactions_batch_{i}.csv'
+         WHERE transaction_dt >= '{interested_datetime}'::TIMESTAMP AND transaction_dt < ('{interested_datetime}'::TIMESTAMP + INTERVAL '1 day');
         """)
-        cur.execute(sql_text)
-        conn.commit()
-        conn.close()
-    else:
-        cur.execute(sql_text)
-        conn.commit()
-        conn.close()
+    ## Конец блока 2 (версия 2)
+    conn.commit()
+    conn.close()
 
 s3_to_staging_transfer = PythonOperator (
     task_id='s3_to_staging_transfer',
